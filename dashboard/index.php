@@ -1,12 +1,5 @@
 <?php
 require_once '../layout/_top.php';
-require_once '../helper/connection.php';
-
-$alternatives = mysqli_query($connection, "SELECT COUNT(*) FROM alternatives");
-$criterias = mysqli_query($connection, "SELECT COUNT(*) FROM criterias");
-
-$total_alternatives = mysqli_fetch_array($alternatives)[0];
-$total_criterias = mysqli_fetch_array($criterias)[0];
 ?>
 
 <section class="section">
