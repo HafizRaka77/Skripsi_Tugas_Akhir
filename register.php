@@ -1,3 +1,27 @@
+<?php
+require_once 'helper/connection.php';
+
+if (isset($_POST['submit'])) {
+  $username = $_POST['username'];
+  $password = $_POST['password'];
+  $confirmPassword = $_POST['confirm_password'];
+  $role_id = 2; // Default role
+
+  if ($password != $confirmPassword) {
+    echo "<script>alert('Password tidak sama!');</script>";
+  } else {
+    $sql = "INSERT INTO login (username, password, role_id) VALUES ('$username', '$password', '$role_id')";
+    if (mysqli_query($connection, $sql)) {
+      echo "<script>alert('Berhasil mendaftar!');</script>";
+      header('Location: login.php');
+    } else {
+      echo "<script>alert('Gagal mendaftar!');</script>";
+    }
+  }
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -72,7 +96,7 @@
                   <input type="hidden" name="role" value="1">
                 </form>
                 <div>
-                  <a href="login.php">Already have an account? Login here</a>
+                  <center><a href="login.php">Sudah memiliki akun? Masuk disini</a></center>
                 </div>
               </div>
             </div>

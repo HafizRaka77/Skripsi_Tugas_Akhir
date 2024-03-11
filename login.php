@@ -1,3 +1,21 @@
+<?php
+require_once 'helper/connection.php';
+session_start();
+if (isset($_POST['submit'])) {
+  $username = $_POST['username'];
+  $password = $_POST['password'];
+
+  $sql = "SELECT * FROM login WHERE username='$username' and password='$password' LIMIT 1";
+  $result = mysqli_query($connection, $sql);
+
+  $row = mysqli_fetch_assoc($result);
+  if ($row) {
+    $_SESSION['login'] = $row;
+    header('Location: index.php');
+  }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -68,12 +86,12 @@
                   </div>
                 </form>
                 <div>
-                  <a href="register.php">Belum punya akun? Daftar disini</a>
+                  <center><a href="register.php">Belum punya akun? Daftar disini</a></center>
                 </div>
               </div>
             </div>
             <div class="simple-footer">
-              Copyright &copy; 2024 Hafiz Raka Pradana
+              Copyright &copy; 2024 SIPECO
             </div>
           </div>
         </div>
