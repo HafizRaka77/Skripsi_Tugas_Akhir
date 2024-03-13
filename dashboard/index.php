@@ -1,5 +1,12 @@
 <?php
 require_once '../layout/_top.php';
+require_once '../helper/connection.php';
+
+$alternatives = mysqli_query($connection, "SELECT COUNT(*) FROM alternatives");
+$criterias = mysqli_query($connection, "SELECT COUNT(*) FROM criterias");
+
+$total_alternatives = mysqli_fetch_array($alternatives)[0];
+$total_criterias = mysqli_fetch_array($criterias)[0];
 ?>
 
 <section class="section">
@@ -21,7 +28,7 @@ require_once '../layout/_top.php';
               <h4>Total Alternatif</h4>
             </div>
             <div class="card-body">
-              <p>5</p>
+              <?= $total_alternatives ?>
             </div>
           </div>
         </div>
@@ -36,7 +43,7 @@ require_once '../layout/_top.php';
               <h4>Total Kriteria</h4>
             </div>
             <div class="card-body">
-              <p>7</p>
+              <?= $total_criterias ?>
             </div>
           </div>
         </div>

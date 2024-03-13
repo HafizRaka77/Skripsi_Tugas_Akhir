@@ -1,7 +1,7 @@
 </div>
 <footer class="main-footer">
   <div class="footer-left">
-    Copyright &copy; 2024 Hafiz Raka Pradana</a>
+    Copyright &copy; 2024 SIPECO</a>
   </div>
   <div class="footer-right">
 

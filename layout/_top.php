@@ -1,3 +1,12 @@
+<?php
+require_once '../helper/auth.php';
+require_once '../helper/get_user_role.php';
+require_once '../helper/connection.php';
+
+isLogin();
+$role = getUserRole($connection);
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
