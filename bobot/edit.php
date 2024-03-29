@@ -27,12 +27,16 @@ $query = mysqli_query($connection, "SELECT * FROM criterias WHERE id='$id'");
                   <td><input class="form-control" required value="<?= $row['id'] ?>" disabled></td>
                 </tr>
                 <tr>
+                  <td>Kode</td>
+                  <td><input class="form-control" required value="<?= $row['kode'] ?>" disabled></td>
+                </tr>
+                <tr>
                   <td>Kriteria</td>
                   <td><input class="form-control" type="text" required value="<?= $row['name'] ?>" disabled></td>
                 </tr>
                 <tr>
                   <td>Bobot</td>
-                  <td><input class="form-control" type="number" name="weight" required></td>
+                  <td><input class="form-control" type="number" name="weight" required value="<?= $row['weight'] ?>"></td>
                 </tr>
                 <tr>
                   <td>

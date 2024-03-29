@@ -18,6 +18,7 @@ $result = mysqli_query($connection, "SELECT * FROM criterias");
               <thead>
                 <tr class="text-center">
                   <th>No</th>
+                  <th>Kode</th>
                   <th>Kriteria</th>
                   <th>Bobot</th>
                   <th>Kategori</th>
@@ -32,6 +33,7 @@ $result = mysqli_query($connection, "SELECT * FROM criterias");
 
                   <tr class="text-center">
                     <td><?= $no ?></td>
+                    <td><?= $data['kode']?></td>
                     <td><?= $data['name'] ?></td>
                     <td><?= $data['weight'] ?></td>
                     <td class="text-uppercase"><?= $data['categories'] ?></td>
