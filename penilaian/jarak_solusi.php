@@ -222,8 +222,8 @@ function closenessCoefficient($positiveDistances, $negativeDistances)
                                 <?php foreach ($alternatives as $alternatif) : ?>
                                     <tr class="text-center">
                                         <td><?= $alternatif['kode'] ?></td>
-                                        <td><?= isset($positiveDistances[$alternatif['id']]) ? $positiveDistances[$alternatif['id']] : 'N/A' ?></td>
-                                        <td><?= isset($negativeDistances[$alternatif['id']]) ? $negativeDistances[$alternatif['id']] : 'N/A' ?></td>
+                                        <td><?= isset($positiveDistances[$alternatif['id']]) ? $positiveDistances[$alternatif['id']] : '-' ?></td>
+                                        <td><?= isset($negativeDistances[$alternatif['id']]) ? $negativeDistances[$alternatif['id']] : '-' ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
