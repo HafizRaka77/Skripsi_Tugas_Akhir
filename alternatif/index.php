@@ -2,7 +2,16 @@
 require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
-$result = mysqli_query($connection, "SELECT * FROM alternatives");
+$user_id = $_SESSION['login']["id"];
+
+$alternatives = query_select("alternatives");
+
+$list = [];
+foreach ($alternatives as $valll) {
+  if (!isset($list[$valll["kode"]])) {
+    $list[$valll["kode"]] = $valll;
+  }
+}
 ?>
 
 <section class="section">
@@ -32,16 +41,16 @@ $result = mysqli_query($connection, "SELECT * FROM alternatives");
               <tbody>
                 <?php
                 $no = 1;
-                while ($data = mysqli_fetch_array($result)) :
+                foreach ($list as $data) :
                 ?>
 
                   <tr class="text-center">
-                    <td><?= $no++ ?></td> 
+                    <td><?= $no++ ?></td>
                     <td><?= $data['kode'] ?></td>
                     <td><?= $data['name'] ?></td>
                     <?php if ($role == 1) : ?>
                       <td>
-                        <a class="btn btn-sm btn-danger mb-md-0 mb-1" href="delete.php?id=<?= $data['id'] ?>" role="button" onclick="return confirm('Apakah Anda yakin akan menghapus data ini?')">
+                        <a class="btn btn-sm btn-danger mb-md-0 mb-1" href="delete.php?id=<?= $data['kode'] ?>" role="button" onclick="return confirm('Apakah Anda yakin akan menghapus data ini?')">
                           <i class="fas fa-trash fa-fw"></i>
                         </a>
                         <a class="btn btn-sm btn-info" href="edit.php?id=<?= $data['id'] ?>">
@@ -52,7 +61,7 @@ $result = mysqli_query($connection, "SELECT * FROM alternatives");
                   </tr>
 
                 <?php
-                endwhile;
+                endforeach;
                 ?>
               </tbody>
             </table>

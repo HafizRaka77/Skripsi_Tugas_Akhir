@@ -10,8 +10,29 @@ if (isset($_POST['submit'])) {
   if ($password != $confirmPassword) {
     echo "<script>alert('Password tidak sama!');</script>";
   } else {
+    $alternatives = query_select("alternatives");
+
+    $list = [];
+    foreach ($alternatives as $valll) {
+      if (!isset($list[$valll["kode"]])) {
+        $list[$valll["kode"]] = $valll;
+      }
+    }
+
     $sql = "INSERT INTO login (username, password, role_id) VALUES ('$username', '$password', '$role_id')";
     if (mysqli_query($connection, $sql)) {
+      $user_id = $connection->insert_id;
+      foreach ($list as $kode => $value) {
+        $newUser = [
+          "kode" => $kode,
+          "name" => $value["name"],
+          "user_id" => $user_id,
+          "nilai_preferensi" => 0,
+        ];
+
+        query_insert('alternatives', $newUser);
+      }
+
       echo "<script>alert('Berhasil mendaftar!');</script>";
       header('Location: login.php');
     } else {

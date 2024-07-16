@@ -23,10 +23,12 @@ $role = getUserRole($connection);
         <li><a class="nav-link" href="../bobot/index.php"><i class="fas fa-columns"></i> <span>Bobot Kriteria</span></a></li>
       <?php endif; ?>
       <?php if ($role !== 1) : ?>
+        <li><a class="nav-link" href="../penilaian/data.php"><i class="fas fa-columns"></i> <span>Input Data Penilaian</span></a></li>
+      <?php endif; ?>
+      <?php if ($role !== 1) : ?>
         <li class="dropdown">
-          <a href="#" class="nav-link has-dropdown" data-toggle="dropdown"><i class="fas fa-columns"></i> <span>Penilaian</span></a>
+          <a href="#" class="nav-link has-dropdown" data-toggle="dropdown"><i class="fas fa-columns"></i> <span>Hasil Penilaian</span></a>
           <ul class="dropdown-menu">
-            <li><a class="nav-link" href="../penilaian/data.php">Data Penilaian</a></li>
             <li><a class="nav-link" href="../penilaian/normalisasi_bobot.php">Normalisasi Bobot Kriteria</a></li>
             <li><a class="nav-link" href="../penilaian/matriks_normalisasi(r).php">Matriks Normalisasi (r)</a></li>
             <li><a class="nav-link" href="../penilaian/normalisasi_terbobot(Y).php">Normalisasi Terbobot (Y)</a></li>

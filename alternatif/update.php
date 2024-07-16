@@ -6,11 +6,11 @@ $id = $_POST['id'];
 $kode = $_POST['kode'];
 $nama_alternatif = $_POST['name'];
 
-$query = mysqli_query($connection, "UPDATE alternatives SET kode = '$kode', name = '$nama_alternatif' WHERE id = '$id'");
+$query = mysqli_query($connection, "UPDATE alternatives SET kode = '$kode', name = '$nama_alternatif' WHERE kode = '$kode'");
 if ($query) {
   $_SESSION['info'] = [
     'status' => 'success',
-    'message' => 'Berhasil mengubah data'
+    'message' => 'Data berhasil diperbarui'
   ];
   header('Location: ./index.php');
 } else {

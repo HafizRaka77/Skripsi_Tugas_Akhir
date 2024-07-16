@@ -2,13 +2,13 @@
 require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
+$user_id = $_SESSION['login']["id"];
 $criteria = mysqli_query($connection, "SELECT * FROM criterias");
+$criteria_value = arrayWhere("criteria_values", "criteria_id", ["where" => "user_id = '$user_id'"]);
 
 $weight_sum = 0; // Initialize sum variable
-
-// Calculate the total weight sum
-while ($data = mysqli_fetch_array($criteria)) {
-    $weight_sum += $data['weight'];
+foreach ($criteria_value as $val) {
+    $weight_sum += $val[0]['weight'];
 }
 
 // Reset criteria query pointer
@@ -41,16 +41,21 @@ mysqli_data_seek($criteria, 0);
                                 $normalized_sum = 0; // Initialize normalized weight sum
                                 while ($data = mysqli_fetch_array($criteria)) :
                                     // Calculate normalized weight
-                                    $normalized_weight = $data['weight'] / $weight_sum;
+                                    if (isset($criteria_value[$data["id"]])) {
+                                        $normalized_weight = $criteria_value[$data["id"]][0]["weight"] /  $weight_sum;
+                                    } else {
+                                        $normalized_weight = 0;
+                                    }
+                                    // $normalized_weight = $data['weight'] / $weight_sum;
                                     $normalized_sum += $normalized_weight; // Sum up the normalized weights
                                 ?>
                                     <tr class="text-center">
                                         <td><?= $no ?></td>
                                         <td><?= $data['kode'] ?></td>
                                         <td><?= $data['name'] ?></td>
-                                        <td><?= $data['weight'] ?></td>
+                                        <td><?= $criteria_value[$data["id"]][0]["weight"]?? '-' ?></td>
                                         <td class="text-uppercase"><?= $data['categories'] ?></td>
-                                        <td><?= number_format($normalized_weight, 3) ?></td>
+                                        <td><?= number_format($normalized_weight, 4) ?></td>
                                     </tr>
                                 <?php
                                     $no++;

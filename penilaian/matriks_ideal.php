@@ -3,141 +3,88 @@ require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
 global $connection;
-$criteria_query = mysqli_query($connection, 'SELECT * FROM criterias');
-$alternatif_query = mysqli_query($connection, 'SELECT * FROM alternatives');
-$alternative_values_query = mysqli_query($connection, "SELECT * FROM alternative_values");
+$user_id = $_SESSION['login']["id"];
 
-// Fetch data into an array
+// Fetch criteria, alternatives, and their values
+$criteria_query = mysqli_query($connection, 'SELECT * FROM criterias');
+$alternatif_query = mysqli_query($connection, "SELECT * FROM alternatives WHERE user_id = '$user_id'");
+$alternative_values_query = mysqli_query($connection, "SELECT * FROM alternative_values WHERE user_id = '$user_id'");
+
+// Fetch data into arrays
 $criterias = mysqli_fetch_all($criteria_query, MYSQLI_ASSOC);
 $alternatives = mysqli_fetch_all($alternatif_query, MYSQLI_ASSOC);
 $alternative_values = mysqli_fetch_all($alternative_values_query, MYSQLI_ASSOC);
 
-    $sql = "SELECT COUNT(*) AS total_criteria FROM criterias";
-    $result = mysqli_query($connection, $sql);
-    $criteriaLength = mysqli_fetch_assoc($result)['total_criteria'];
-
-    $sqlWeight = "SELECT * FROM criterias";
-    $resultWeight = mysqli_query($connection, $sqlWeight);
-    $resultWeight = mysqli_fetch_all($resultWeight, MYSQLI_ASSOC);
-
-    $divider = normalizedWeight($criteriaLength);
-    $normalizedMatrix = $divider['normalizedValue'];
-    $weight = array_column($resultWeight, 'weight', 'id');
-    $weight = array_map('floatval', $weight);
-    $weightedMatrix = weightedMatrix($normalizedMatrix, $weight);
-    $positiveIdealSolution = positiveIdealSolution($weightedMatrix);
-    $negativeIdealSolution = negativeIdealSolution($weightedMatrix);
-
-function normalizedWeight($criteriaLength)
-{
-    global $connection;
-    $divider = [];
-    $normalizedValue = [];
-
-    for ($criteriaId = 1; $criteriaId <= $criteriaLength; $criteriaId++) {
-        $sumOfSquare = 0.0; // Initialize with double type for better precision
-
-        $alternativeValues = mysqli_query($connection, "SELECT * FROM alternative_values WHERE criteria_id = $criteriaId");
-        while ($alternativeValue = mysqli_fetch_assoc($alternativeValues)) {
-            $value = (float) number_format($alternativeValue['value'], 3);
-            $sumOfSquare += pow($value, 2);
-        }
-
-        $sqrtSumOfSquare = sqrt($sumOfSquare);
-        $divider[$criteriaId] = number_format($sqrtSumOfSquare, 3);
-    }
-
-    foreach ($divider as $criteriaId => $value) {
-        $alternativeValues = mysqli_query($connection, "SELECT * FROM alternative_values WHERE criteria_id = $criteriaId");
-        while ($alternativeValue = mysqli_fetch_assoc($alternativeValues)) {
-            $normalizedValue[$alternativeValue['alternative_id']][$criteriaId] = (float) number_format($alternativeValue['value'] / $value, 3);
-        }
-    }
-
-    return [
-        'divider' => $divider, // Maintain string format for display
-        'normalizedValue' => $normalizedValue, // Now contains numeric values
-    ];
+// Fetch criteria weights
+$criteria_value_query = mysqli_query($connection, "SELECT criteria_id, weight FROM criteria_values WHERE user_id = '$user_id'");
+$criteria_value = [];
+while ($row = mysqli_fetch_assoc($criteria_value_query)) {
+    $criteria_value[$row['criteria_id']] = $row['weight'];
 }
 
-function weightedMatrix(array $normalizedMatrix, $weight)
-{
-    $weightedValue = [];
+// Calculate total weight sum
+$weight_sum = array_sum($criteria_value);
 
-    foreach ($normalizedMatrix as $alternativeId => $criteria) {
-        foreach ($criteria as $criteriaId => $value) {
-            $weightResult = $value * $weight[$criteriaId];
-            $weightedValue[$alternativeId][$criteriaId] = (float) number_format($weightResult, 3);
+// Calculate the divider for normalization
+$divider = [];
+foreach ($criterias as $kriteria) {
+    $sumOfSquare = 0.0;
+    foreach ($alternative_values as $value) {
+        if ($value['criteria_id'] == $kriteria['id']) {
+            $sumOfSquare += pow($value['value'], 2);
         }
     }
-
-    return $weightedValue;
+    $divider[$kriteria['id']] = sqrt($sumOfSquare);
 }
 
-function positiveIdealSolution(array $weightedMatrix)
+// Calculate normalized and weighted values
+$normalizedMatrix = [];
+foreach ($alternative_values as $value) {
+    $criteriaId = $value['criteria_id'];
+    $alternativeId = $value['alternative_id'];
+    $normalizedValue = $value['value'] / $divider[$criteriaId];
+    
+    // Get the corresponding weight
+    $criteria_weight = $criteria_value[$criteriaId] ?? 0; // Default to 0 if weight not found
+    
+    // Normalize the weight
+    $normalized_weight = $criteria_weight / $weight_sum;
+    $weightedValue = $normalizedValue * $normalized_weight;
+
+    // Store in normalized matrix
+    $normalizedMatrix[$alternativeId][$criteriaId] = $weightedValue; // Store the actual number, not formatted
+}
+
+// Compute Positive and Negative Ideal Solutions
+$positiveIdealSolution = computeIdealSolution($normalizedMatrix, $criterias, true);
+$negativeIdealSolution = computeIdealSolution($normalizedMatrix, $criterias, false);
+
+// Function to compute ideal solutions
+function computeIdealSolution(array $weightedMatrix, array $criterias, $isPositive = true)
 {
-    global $connection;
-    $criteriaBenefit = mysqli_query($connection, "SELECT * FROM criterias WHERE categories = 'benefit'");
-    $criteriaBenefit = mysqli_fetch_all($criteriaBenefit, MYSQLI_ASSOC);
-    $criteriaBenefit = array_column($criteriaBenefit, 'id');
-    $positiveIdealSolution = [];
-    foreach ($weightedMatrix as $alternativeId => $criteria) {
-        foreach ($criteria as $criteriaId => $value) {
-            if (in_array($criteriaId, $criteriaBenefit)) {
-                if (!isset($positiveIdealSolution[$criteriaId])) {
-                    $positiveIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($positiveIdealSolution[$criteriaId] < $value) {
-                        $positiveIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
+    $idealSolution = [];
+    foreach ($criterias as $kriteria) {
+        $criteriaId = $kriteria['id'];
+        $criteriaType = $kriteria['categories']; // 'cost' or 'benefit'
+        $values = array_column($weightedMatrix, $criteriaId);
+
+        // Remove null values
+        $values = array_filter($values, function($value) {
+            return $value !== null;
+        });
+
+        if (empty($values)) {
+            $idealSolution[$criteriaId] = null; // Use null if there are no values
+        } else {
+            if ($isPositive) {
+                $idealSolution[$criteriaId] = ($criteriaType === 'cost') ? min($values) : max($values);
             } else {
-                if (!isset($positiveIdealSolution[$criteriaId])) {
-                    $positiveIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($positiveIdealSolution[$criteriaId] > $value) {
-                        $positiveIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
+                $idealSolution[$criteriaId] = ($criteriaType === 'cost') ? max($values) : min($values);
             }
         }
     }
-
-    return $positiveIdealSolution;
+    return $idealSolution;
 }
-
-function negativeIdealSolution(array $weightedMatrix)
-{
-    global $connection;
-    $criteriaBenefit = mysqli_query($connection, "SELECT * FROM criterias WHERE categories = 'cost'");
-    $criteriaBenefit = mysqli_fetch_all($criteriaBenefit, MYSQLI_ASSOC);
-    $criteriaBenefit = array_column($criteriaBenefit, 'id');
-    $negativeIdealSolution = [];
-    foreach ($weightedMatrix as $alternativeId => $criteria) {
-        foreach ($criteria as $criteriaId => $value) {
-            if (in_array($criteriaId, $criteriaBenefit)) {
-                if (!isset($negativeIdealSolution[$criteriaId])) {
-                    $negativeIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($value > $negativeIdealSolution[$criteriaId]) {
-                        $negativeIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
-            } else {
-                if (!isset($negativeIdealSolution[$criteriaId])) {
-                    $negativeIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($value < $negativeIdealSolution[$criteriaId]) {
-                        $negativeIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
-            }
-        }
-    }
-
-    return $negativeIdealSolution;
-}
-
 ?>
 
 <section class="section">
@@ -154,21 +101,35 @@ function negativeIdealSolution(array $weightedMatrix)
                                 <tr class="text-center">
                                     <th>Kode</th>
                                     <?php foreach ($criterias as $kriteria) : ?>
-                                        <th><?= $kriteria['kode'] ?></th>
+                                        <th><?= htmlspecialchars($kriteria['kode'], ENT_QUOTES, 'UTF-8') ?></th>
                                     <?php endforeach; ?>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr class="text-center">
                                     <th>Solusi ideal +</th>
-                                    <?php foreach ($positiveIdealSolution as $value) : ?>
-                                        <td><?= number_format($value, 3) ?></td>
+                                    <?php foreach ($criterias as $kriteria) : ?>
+                                        <td>
+                                            <?php 
+                                                $criteriaId = $kriteria['id'];
+                                                echo isset($positiveIdealSolution[$criteriaId]) 
+                                                    ? number_format($positiveIdealSolution[$criteriaId], 3) 
+                                                    : '-';
+                                            ?>
+                                        </td>
                                     <?php endforeach; ?>
                                 </tr>
                                 <tr class="text-center">
                                     <th>Solusi ideal -</th>
-                                    <?php foreach ($negativeIdealSolution as $value) : ?>
-                                        <td><?= number_format($value, 3) ?></td>
+                                    <?php foreach ($criterias as $kriteria) : ?>
+                                        <td>
+                                            <?php 
+                                                $criteriaId = $kriteria['id'];
+                                                echo isset($negativeIdealSolution[$criteriaId]) 
+                                                    ? number_format($negativeIdealSolution[$criteriaId], 3) 
+                                                    : '-';
+                                            ?>
+                                        </td>
                                     <?php endforeach; ?>
                                 </tr>
                             </tbody>

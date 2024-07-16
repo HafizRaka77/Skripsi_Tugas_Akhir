@@ -10,7 +10,7 @@ $query = mysqli_query($connection, "insert into criterias (kode, name, categorie
 if ($query) {
   $_SESSION['info'] = [
     'status' => 'success',
-    'message' => 'Berhasil menambah data'
+    'message' => 'Data berhasil ditambah'
   ];
   header('Location: ./index.php');
 } else {

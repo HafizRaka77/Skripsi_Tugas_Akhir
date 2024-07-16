@@ -2,7 +2,10 @@
 require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
+$id = $_SESSION["login"]['id'];
 $result = mysqli_query($connection, "SELECT * FROM criterias");
+$criteria_value = arrayWhere("criteria_values", "criteria_id",["where" => "user_id = '$id'"]);
+
 ?>
 
 <section class="section">
@@ -30,12 +33,14 @@ $result = mysqli_query($connection, "SELECT * FROM criterias");
                 $no = 1;
                 while ($data = mysqli_fetch_array($result)) :
                 ?>
-
+                  <?php  
+                  $criteria_id = $data["id"];
+                   ?>
                   <tr class="text-center">
                     <td><?= $no ?></td>
                     <td><?= $data['kode']?></td>
                     <td><?= $data['name'] ?></td>
-                    <td><?= $data['weight'] ?></td>
+                    <td><?= isset($criteria_value[$criteria_id]) ? $criteria_value[$criteria_id][0]["weight"] : "" ?></td>
                     <td class="text-uppercase"><?= $data['categories'] ?></td>
                     <td>
                       <a class="btn btn-sm btn-info" href="edit.php?id=<?= $data['id'] ?>">

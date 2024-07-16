@@ -2,7 +2,8 @@
 require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
-$alternatives = mysqli_query($connection, "SELECT * FROM alternatives");
+$user_id = $_SESSION['login']["id"];
+$alternatives = mysqli_query($connection, "SELECT * FROM alternatives WHERE user_id = '$user_id'");
 $criterias = mysqli_query($connection, "SELECT * FROM criterias");
 
 if (isset($_POST['proses'])) {
@@ -11,12 +12,12 @@ if (isset($_POST['proses'])) {
 
   if (!empty($selectedAlternative) && !empty($criteriasValues)) {
     foreach ($criteriasValues as $criteriaId => $value) {
-      $sql = "INSERT INTO alternative_values (alternative_id, criteria_id, value)
-      VALUES ($selectedAlternative, $criteriaId, " . $_POST['weights'][$criteriaId] . ")";
+      $sql = "INSERT INTO alternative_values (alternative_id, criteria_id, value, user_id)
+      VALUES ($selectedAlternative, $criteriaId, " . $_POST['weights'][$criteriaId] . ", $user_id)";
       if (mysqli_query($connection, $sql)) {
         $_SESSION['info'] = [
           'status' => 'success',
-          'message' => 'Berhasil menambah data'
+          'message' => 'Data berhasil ditambahkan'
         ];
       } else {
         $_SESSION['info'] = [
@@ -37,6 +38,11 @@ if (isset($_POST['proses'])) {
     <h1>Tambah Nilai</h1>
     <a href="./data.php" class="btn btn-light">Kembali</a>
   </div>
+  <b><p>PANDUAN PENGISIAN</p></b>
+    <p>Skala Penilaian 1-5 dengan ketentuan berikut :
+    <p> 1 = Sangat Buruk, 2 = Buruk, 3 = Cukup Baik, 4 = Baik, 5 = Sangat Baik</p>
+    <b>Note: Khusus kriteria harga, skala penilaian 1-3 dengan ketentuan berikut : </p></b>
+    <b><p> 1 = Mahal, 2 = Normal, 3 = Murah</p></b>
   <div class="row">
     <div class="col-12">
       <div class="card">
@@ -75,7 +81,7 @@ if (isset($_POST['proses'])) {
                         <input type="text" class="form-control" value="<?= $criteria['name'] ?>" disabled>
                       </div>
                       <div class="col-sm-6 mb-2">
-                        <input type="number" class="form-control" name="weights[<?= $criteria['id'] ?>]" required>
+                        <input type="number" class="form-control" name="weights[<?= $criteria['id'] ?>]" required max="5" min="1">
                       </div>
                     </div>
                   <?php endwhile; ?>

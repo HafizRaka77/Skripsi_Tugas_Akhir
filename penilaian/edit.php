@@ -3,14 +3,16 @@ require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
 $id = $_GET['id']; // Mendapatkan ID alternatif dari parameter URL
+$user_id = $_SESSION['login']["id"];
+
 
 // Ambil data alternatif yang akan diedit dari database
-$query_alternative = "SELECT * FROM alternatives WHERE id = $id";
+$query_alternative = "SELECT * FROM alternatives WHERE id = $id AND user_id = '$user_id'";
 $result_alternative = mysqli_query($connection, $query_alternative);
 $data_alternative = mysqli_fetch_assoc($result_alternative);
 
 // Ambil data nilai alternatif yang akan diedit dari database
-$query_values = "SELECT * FROM alternative_values WHERE alternative_id = $id";
+$query_values = "SELECT * FROM alternative_values WHERE alternative_id = $id AND user_id = '$user_id'";
 $result_values = mysqli_query($connection, $query_values);
 $values = array();
 while ($row = mysqli_fetch_assoc($result_values)) {

@@ -11,7 +11,7 @@ $query = mysqli_query($connection, "update criterias set kode='$kode', name='$na
 if ($query) {
   $_SESSION['info'] = [
     'status' => 'success',
-    'message' => 'Berhasil mengubah data'
+    'message' => 'Data berhasil diperbarui'
   ];
   header('Location: ./index.php');
 } else {

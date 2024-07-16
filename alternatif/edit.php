@@ -37,7 +37,7 @@ ob_end_flush(); // Flush buffered content
                 </tr>
                 <tr>
                   <td>Kode</td>
-                  <td><input class="form-control" type="text" name="kode" size="20" required value="<?= $row['kode'] ?>"disabled></td>
+                  <td><input class="form-control" type="text" name="kode" size="20" required value="<?= $row['kode'] ?>" readonly></td>
                 </tr>
                 <tr>
                   <td>Nama Alternatif</td>

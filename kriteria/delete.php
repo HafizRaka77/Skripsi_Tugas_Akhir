@@ -10,7 +10,7 @@ mysqli_query($connection, "TRUNCATE TABLE alternative_values");
 if ($result) {
   $_SESSION['info'] = [
     'status' => 'success',
-    'message' => 'Berhasil menghapus data'
+    'message' => 'Data berhasil dihapus'
   ];
   header('Location: ./index.php');
 } else {

@@ -3,207 +3,124 @@ require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
 global $connection;
-$criteria_query = mysqli_query($connection, 'SELECT * FROM criterias');
-$alternatif_query = mysqli_query($connection, 'SELECT * FROM alternatives');
-$alternative_values_query = mysqli_query($connection, "SELECT * FROM alternative_values");
+$user_id = $_SESSION['login']["id"];
 
 // Fetch data into an array
+$criteria_query = mysqli_query($connection, 'SELECT * FROM criterias');
+$alternatif_query = mysqli_query($connection, "SELECT * FROM alternatives WHERE user_id = '$user_id'");
+$alternative_values_query = mysqli_query($connection, "SELECT * FROM alternative_values WHERE user_id = '$user_id'");
+
 $criterias = mysqli_fetch_all($criteria_query, MYSQLI_ASSOC);
 $alternatives = mysqli_fetch_all($alternatif_query, MYSQLI_ASSOC);
 $alternative_values = mysqli_fetch_all($alternative_values_query, MYSQLI_ASSOC);
-try {
-    $sql = "SELECT COUNT(*) AS total_criteria FROM criterias";
-    $result = mysqli_query($connection, $sql);
-    $criteriaLength = mysqli_fetch_assoc($result)['total_criteria'];
 
-    $sqlWeight = "SELECT * FROM criterias";
-    $resultWeight = mysqli_query($connection, $sqlWeight);
-    $resultWeight = mysqli_fetch_all($resultWeight, MYSQLI_ASSOC);
-
-    $divider = normalizedWeight($criteriaLength);
-    $normalizedMatrix = $divider['normalizedValue'];
-    $weight = array_column($resultWeight, 'weight', 'id');
-    $weight = array_map('floatval', $weight);
-    $weightedMatrix = weightedMatrix($normalizedMatrix, $weight);
-    $positiveIdealSolution = positiveIdealSolution($weightedMatrix);
-    $negativeIdealSolution = negativeIdealSolution($weightedMatrix);
-
-    $positiveDistances = positiveDistances($weightedMatrix, $positiveIdealSolution);
-    $negativeDistances = negativeDistances($weightedMatrix, $negativeIdealSolution);
-    $closenessCoefficient = closenessCoefficient($positiveDistances, $negativeDistances);
-
-    foreach ($closenessCoefficient as $alternativeId => $value) {
-        $sql = "UPDATE alternatives SET nilai_preferensi = $value WHERE id = $alternativeId";
-        mysqli_query($connection, $sql);
-    }
-} catch (Exception $e) {
-    // Handle exceptions
+// Fetch criteria weights
+$criteria_value_query = mysqli_query($connection, "SELECT criteria_id, weight FROM criteria_values WHERE user_id = '$user_id'");
+$criteria_value = [];
+while ($row = mysqli_fetch_assoc($criteria_value_query)) {
+    $criteria_value[$row['criteria_id']] = $row['weight'];
 }
 
-function normalizedWeight($criteriaLength)
-{
-    global $connection;
-    $divider = [];
-    $normalizedValue = [];
+// Calculate total weight sum
+$weight_sum = array_sum($criteria_value);
 
-    for ($criteriaId = 1; $criteriaId <= $criteriaLength; $criteriaId++) {
-        $sumOfSquare = 0.0; // Initialize with double type for better precision
-
-        $alternativeValues = mysqli_query($connection, "SELECT * FROM alternative_values WHERE criteria_id = $criteriaId");
-        while ($alternativeValue = mysqli_fetch_assoc($alternativeValues)) {
-            $value = (float) number_format($alternativeValue['value'], 3);
-            $sumOfSquare += pow($value, 2);
-        }
-
-        $sqrtSumOfSquare = sqrt($sumOfSquare);
-        $divider[$criteriaId] = number_format($sqrtSumOfSquare, 3);
-    }
-
-    foreach ($divider as $criteriaId => $value) {
-        $alternativeValues = mysqli_query($connection, "SELECT * FROM alternative_values WHERE criteria_id = $criteriaId");
-        while ($alternativeValue = mysqli_fetch_assoc($alternativeValues)) {
-            $normalizedValue[$alternativeValue['alternative_id']][$criteriaId] = (float) number_format($alternativeValue['value'] / $value, 3);
+// Calculate the divider for normalization
+$divider = [];
+foreach ($criterias as $kriteria) {
+    $sumOfSquare = 0.0;
+    foreach ($alternative_values as $value) {
+        if ($value['criteria_id'] == $kriteria['id']) {
+            $sumOfSquare += pow($value['value'], 2);
         }
     }
-
-    return [
-        'divider' => $divider, // Maintain string format for display
-        'normalizedValue' => $normalizedValue, // Now contains numeric values
-    ];
+    $divider[$kriteria['id']] = sqrt($sumOfSquare);
 }
 
-function weightedMatrix(array $normalizedMatrix, $weight)
-{
-    $weightedValue = [];
+// Calculate normalized and weighted values
+$normalizedMatrix = [];
+foreach ($alternative_values as $value) {
+    $criteriaId = $value['criteria_id'];
+    $alternativeId = $value['alternative_id'];
+    $normalizedValue = $divider[$criteriaId] != 0 ? $value['value'] / $divider[$criteriaId] : 0;
+    
+    // Get the corresponding weight
+    $criteria_weight = $criteria_value[$criteriaId] ?? 0; // Default to 0 if weight not found
+    
+    // Normalize the weight
+    $normalized_weight = $weight_sum != 0 ? $criteria_weight / $weight_sum : 0;
+    $weightedValue = $normalizedValue * $normalized_weight;
 
-    foreach ($normalizedMatrix as $alternativeId => $criteria) {
-        foreach ($criteria as $criteriaId => $value) {
-            $weightResult = $value * $weight[$criteriaId];
-            $weightedValue[$alternativeId][$criteriaId] = (float) number_format($weightResult, 3);
-        }
-    }
-
-    return $weightedValue;
+    // Store in normalized matrix
+    $normalizedMatrix[$alternativeId][$criteriaId] = $weightedValue; // Store the actual number, not formatted
 }
 
-function positiveIdealSolution(array $weightedMatrix)
+// Compute Positive and Negative Ideal Solutions
+$positiveIdealSolution = computeIdealSolution($normalizedMatrix, $criterias, true);
+$negativeIdealSolution = computeIdealSolution($normalizedMatrix, $criterias, false);
+
+// Function to compute ideal solutions
+function computeIdealSolution(array $weightedMatrix, array $criterias, $isPositive = true)
 {
-    global $connection;
-    $criteriaBenefit = mysqli_query($connection, "SELECT * FROM criterias WHERE categories = 'benefit'");
-    $criteriaBenefit = mysqli_fetch_all($criteriaBenefit, MYSQLI_ASSOC);
-    $criteriaBenefit = array_column($criteriaBenefit, 'id');
-    $positiveIdealSolution = [];
-    foreach ($weightedMatrix as $alternativeId => $criteria) {
-        foreach ($criteria as $criteriaId => $value) {
-            if (in_array($criteriaId, $criteriaBenefit)) {
-                if (!isset($positiveIdealSolution[$criteriaId])) {
-                    $positiveIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($positiveIdealSolution[$criteriaId] < $value) {
-                        $positiveIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
-            } else {
-                if (!isset($positiveIdealSolution[$criteriaId])) {
-                    $positiveIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($positiveIdealSolution[$criteriaId] > $value) {
-                        $positiveIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
+    $idealSolution = [];
+    foreach ($criterias as $kriteria) {
+        $criteriaId = $kriteria['id'];
+        $criteriaType = $kriteria['categories']; // 'cost' or 'benefit'
+        $values = array_column($weightedMatrix, $criteriaId);
+
+        if ($isPositive) {
+            if ($criteriaType === 'cost') {
+                $idealSolution[$criteriaId] = !empty($values) ? min($values) : null;
+            } else { // 'benefit'
+                $idealSolution[$criteriaId] = !empty($values) ? max($values) : null;
             }
-        }
-    }
-
-    return $positiveIdealSolution;
-}
-
-function negativeIdealSolution(array $weightedMatrix)
-{
-    global $connection;
-    $criteriaBenefit = mysqli_query($connection, "SELECT * FROM criterias WHERE categories = 'cost'");
-    $criteriaBenefit = mysqli_fetch_all($criteriaBenefit, MYSQLI_ASSOC);
-    $criteriaBenefit = array_column($criteriaBenefit, 'id');
-    $negativeIdealSolution = [];
-    foreach ($weightedMatrix as $alternativeId => $criteria) {
-        foreach ($criteria as $criteriaId => $value) {
-            if (in_array($criteriaId, $criteriaBenefit)) {
-                if (!isset($negativeIdealSolution[$criteriaId])) {
-                    $negativeIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($value > $negativeIdealSolution[$criteriaId]) {
-                        $negativeIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
-            } else {
-                if (!isset($negativeIdealSolution[$criteriaId])) {
-                    $negativeIdealSolution[$criteriaId] = (float)$value;
-                } else {
-                    if ($value < $negativeIdealSolution[$criteriaId]) {
-                        $negativeIdealSolution[$criteriaId] = (float)$value;
-                    }
-                }
-            }
-        }
-    }
-
-    return $negativeIdealSolution;
-}
-
-function positiveDistances(array $weightedMatrix, array $positiveIdealSolution)
-{
-    $positiveDistances = [];
-
-    foreach ($weightedMatrix as $alternativeId => $criteria) {
-        $sumOfSquare = 0.0; // Initialize with double type for better precision
-
-        foreach ($criteria as $criteriaId => $value) {
-            $sumOfSquare += pow($value - $positiveIdealSolution[$criteriaId], 2);
-        }
-
-        $sqrtSumOfSquare = sqrt($sumOfSquare);
-        $positiveDistances[$alternativeId] = number_format($sqrtSumOfSquare, 3);
-    }
-
-    return $positiveDistances;
-}
-
-function negativeDistances(array $weightedMatrix, array $negativeIdealSolution)
-{
-    $negativeDistances = [];
-
-    foreach ($weightedMatrix as $alternativeId => $criteria) {
-        $sumOfSquare = 0.0; // Initialize with double type for better precision
-
-        foreach ($criteria as $criteriaId => $value) {
-            $sumOfSquare += pow($value - $negativeIdealSolution[$criteriaId], 2);
-        }
-
-        $sqrtSumOfSquare = sqrt($sumOfSquare);
-        $negativeDistances[$alternativeId] = number_format($sqrtSumOfSquare, 3);
-    }
-
-    return $negativeDistances;
-}
-function closenessCoefficient($positiveDistances, $negativeDistances)
-{
-    $closenessCoefficient = [];
-
-    foreach ($positiveDistances as $alternativeId => $positiveDistance) {
-        if (isset($negativeDistances[$alternativeId]) && $negativeDistances[$alternativeId] != 0) {
-            $closenessCoefficient[$alternativeId] = $negativeDistances[$alternativeId] / ($positiveDistance + $negativeDistances[$alternativeId]);
         } else {
-            $closenessCoefficient[$alternativeId] = 0;
+            if ($criteriaType === 'cost') {
+                $idealSolution[$criteriaId] = !empty($values) ? max($values) : null;
+            } else { // 'benefit'
+                $idealSolution[$criteriaId] = !empty($values) ? min($values) : null;
+            }
         }
     }
+    return $idealSolution;
+}
 
-    return $closenessCoefficient;
+// Compute distances from ideal solutions
+$positiveDistances = computeDistances($normalizedMatrix, $positiveIdealSolution);
+$negativeDistances = computeDistances($normalizedMatrix, $negativeIdealSolution);
+
+// Function to compute distances from ideal solutions
+function computeDistances(array $weightedMatrix, array $idealSolution)
+{
+    $distances = [];
+    foreach ($weightedMatrix as $alternativeId => $criteria) {
+        $sumOfSquare = 0.0; // Initialize with double type for better precision
+        foreach ($criteria as $criteriaId => $value) {
+            if (isset($idealSolution[$criteriaId])) {
+                $sumOfSquare += pow($value - $idealSolution[$criteriaId], 2);
+            }
+        }
+        $distances[$alternativeId] = sqrt($sumOfSquare);
+    }
+    return $distances;
+}
+
+// Compute Closeness Coefficient
+$closenessCoefficient = [];
+foreach ($positiveDistances as $alternativeId => $positiveDistance) {
+    $negativeDistance = $negativeDistances[$alternativeId];
+    $closenessCoefficient[$alternativeId] = ($positiveDistance + $negativeDistance != 0) ? $negativeDistance / ($positiveDistance + $negativeDistance) : 0;
+}
+
+// Update preference values in the database
+foreach ($closenessCoefficient as $alternativeId => $value) {
+    $sql = "UPDATE alternatives SET nilai_preferensi = $value WHERE id = $alternativeId";
+    mysqli_query($connection, $sql);
 }
 ?>
 
 <section class="section">
     <div class="section-header d-flex justify-content-between">
-        <h1> Jarak Nilai Alternatif Dari Matriks Solusi Ideal Positif & Negatif</h1>
+        <h1>Jarak Nilai Alternatif Dari Matriks Solusi Ideal Positif & Negatif</h1>
     </div>
     <div class="row">
         <div class="col-12">
@@ -221,9 +138,9 @@ function closenessCoefficient($positiveDistances, $negativeDistances)
                             <tbody>
                                 <?php foreach ($alternatives as $alternatif) : ?>
                                     <tr class="text-center">
-                                        <td><?= $alternatif['kode'] ?></td>
-                                        <td><?= isset($positiveDistances[$alternatif['id']]) ? $positiveDistances[$alternatif['id']] : '-' ?></td>
-                                        <td><?= isset($negativeDistances[$alternatif['id']]) ? $negativeDistances[$alternatif['id']] : '-' ?></td>
+                                        <td><?= htmlspecialchars($alternatif['kode'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= isset($positiveDistances[$alternatif['id']]) ? number_format($positiveDistances[$alternatif['id']], 3) : '-' ?></td>
+                                        <td><?= isset($negativeDistances[$alternatif['id']]) ? number_format($negativeDistances[$alternatif['id']], 3) : '-' ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>

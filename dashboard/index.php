@@ -2,20 +2,30 @@
 require_once '../layout/_top.php';
 require_once '../helper/connection.php';
 
-$alternatives = mysqli_query($connection, "SELECT COUNT(*) FROM alternatives");
+$user_id = $_SESSION['login']["id"];
+// $id_role = $_SESSION['login']["role_id"];
+// $role = query_find("role", "id = '$id_role'");
+
+$alternatives = query_select("alternatives");
+
+$list = [];
+foreach ($alternatives as $valll) {
+  if (!isset($list[$valll["kode"]])) {
+    $list[$valll["kode"]] = true;
+  }
+}
+
+$total_alternatives = count($list);
 $criterias = mysqli_query($connection, "SELECT COUNT(*) FROM criterias");
 
-$total_alternatives = mysqli_fetch_array($alternatives)[0];
 $total_criterias = mysqli_fetch_array($criterias)[0];
 ?>
 
+<?php if ($role == 1) : ?>
 <section class="section">
   <div class="section-header">
     <h1>Dashboard</h1>
   </div>
-  <div>
-    <center><h3>Selamat Datang di Sistem Informasi Penilaian E-commerce</h3></center>
-  </div><br>
   <div class="column">
     <div class="row">
       <div class="col-lg-3 col-md-6 col-sm-6 col-12">
@@ -51,7 +61,30 @@ $total_criterias = mysqli_fetch_array($criterias)[0];
     </div>
   </div>
 </section>
-
+<?php endif; ?>
+<?php if ($role !== 1) : ?>
+<section class="section">
+  <div class="section-header">
+    <h1>Dashboard</h1>
+  </div>
+  <div class="container mt-3">
+        <div class="p-2 text-center">
+            <div class="p-5 row align-items-center justify-content-center">
+                <div class="col-lg-8">
+                    <h1 class="pb-3 fs-3">Sistem Penilaian E-Commerce Menggunakan Metode Kombinasi SMART Dan TOPSIS
+                    </h1>
+                    <p class="fw-normal fs-10 text-muted">
+                        Metode SMART (Simple Multi Attribute Rating Tecհnique) dan TOPSIS (Technique for Others Preference by Similarity) 
+                        adalah dua metode pengambilan keputusan yang digunakan dalam sistem penilaian e-commerce dengan memberikan hasil akhir 
+                        berupa nilai preferensi.
+                    </p>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 <?php
 require_once '../layout/_bottom.php';
 ?>
